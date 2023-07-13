@@ -1,5 +1,15 @@
 import * as vscode from 'vscode';
 
+function activate(context: vscode.ExtensionContext) {
+    context.subscriptions.push(
+        vscode.commands.registerCommand('extension.focus', cmdFocus),
+        vscode.window.onDidChangeActiveTextEditor(doSetDecorations),
+    );
+}
+    
+function deactivate() {}
+
+
 const decorationType = createDecorationType();
 
 // Looks for a range in `oldRanges` which contains `range` 
@@ -20,13 +30,6 @@ function selectionsComplement(selections: readonly vscode.Range[], fullRange: vs
     return selections.reduce(cut, [fullRange]);
 }
 
-function activate(context: vscode.ExtensionContext) {
-    context.subscriptions.push(
-        vscode.commands.registerCommand('extension.focus', cmdFocus),
-        vscode.window.onDidChangeActiveTextEditor(doSetDecorations),
-    );
-}
-    
 let dt = new Map<string, { ranges: readonly vscode.Range[] }>();
 
 function cmdFocus(): void {
@@ -89,8 +92,6 @@ function createDecorationType() {
 
     return vscode.window.createTextEditorDecorationType(decorationOptions);
 }
-
-function deactivate() {}
 
 module.exports = {
 	activate,
