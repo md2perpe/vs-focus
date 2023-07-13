@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('extension.focus', cmdFocus),
+        vscode.commands.registerCommand('vs-focus.addRange', cmdAddRange),
         vscode.window.onDidChangeActiveTextEditor(doSetDecorations),
     );
 }
@@ -32,30 +32,23 @@ function selectionsComplement(selections: readonly vscode.Range[], fullRange: vs
 
 let dt = new Map<string, { ranges: readonly vscode.Range[] }>();
 
-function cmdFocus(): void {
+function cmdAddRange(): void {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return;
     }
     
-    const ranges = getRanges(editor);
-    if (!ranges) {
+    // if all selections are empty ...
+    const newRanges = editor.selections;
+    if (newRanges.every(range => range.isEmpty)) {
         return;
     }
 
     const fileName = editor.document.fileName;
-    dt.set(fileName, { ranges });
+    const oldRanges = dt.get(fileName)?.ranges ?? [];
+    dt.set(fileName, { ranges: [...oldRanges, ...newRanges ] });
 
     doSetDecorations(editor);
-}
-
-function getRanges(editor: vscode.TextEditor): readonly vscode.Range[] {
-    // When there is no or just an empty selection
-    if (editor.selections.length <= 1 && editor.selection.isEmpty) {
-        return [];
-    }
-
-    return editor.selections;
 }
 
 function getFullDocumentRange(editor: vscode.TextEditor): vscode.Range {

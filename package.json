@@ -33,8 +33,9 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.focus",
-                "title": "Focus"
+                "command": "vs-focus.addRange",
+                "category": "Focus",
+                "title": "Add Range"
             }
         ],
         "configuration": {
