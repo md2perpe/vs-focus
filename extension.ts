@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 
+const decorationType = createDecorationType();
+
 // Looks for a range in `oldRanges` which contains `range` 
 // and splits that in the before and after parts.
 function cut(oldRanges: vscode.Range[], range: vscode.Range): vscode.Range[] {
@@ -18,7 +20,6 @@ function selectionsComplement(selections: readonly vscode.Range[], fullRange: vs
     return selections.reduce(cut, [fullRange]);
 }
 
-
 function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.focus', cmdFocus),
@@ -26,7 +27,7 @@ function activate(context: vscode.ExtensionContext) {
     );
 }
     
-let dt = new Map<string, { ranges: readonly vscode.Range[], decorationType: vscode.TextEditorDecorationType }>();
+let dt = new Map<string, { ranges: readonly vscode.Range[] }>();
 
 function cmdFocus(): void {
     const editor = vscode.window.activeTextEditor;
@@ -39,13 +40,8 @@ function cmdFocus(): void {
         return;
     }
 
-    const decorationType = createDecorationType();
-
     const fileName = editor.document.fileName;
-    if (dt.has(fileName)) {
-        dt.get(fileName)!.decorationType.dispose();
-    }
-    dt.set(fileName, { ranges, decorationType });
+    dt.set(fileName, { ranges });
 
     doSetDecorations(editor);
 }
@@ -78,7 +74,7 @@ function doSetDecorations(editor: vscode.TextEditor|undefined) {
 
     const grayoutRanges = selectionsComplement(decorationInfo.ranges, getFullDocumentRange(editor));
 
-    editor.setDecorations(decorationInfo.decorationType, grayoutRanges);
+    editor.setDecorations(decorationType, grayoutRanges);
 }
 
 function createDecorationType() {
