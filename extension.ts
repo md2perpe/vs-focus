@@ -30,6 +30,32 @@ function selectionsComplement(selections: readonly vscode.Range[], fullRange: vs
     return selections.reduce(cut, [fullRange]);
 }
 
+function mergeOverlapping(oldRanges: vscode.Range[]): vscode.Range[] {
+    if (oldRanges.length == 0) {
+        return [];
+    }
+
+    oldRanges.sort((r1, r2) => r1.start.isBefore(r2.start) ? -1 : 1);
+
+    let newRanges = [];
+
+    let range1 = oldRanges.shift();
+    while (oldRanges.length > 0) {
+        const range2 = oldRanges.shift();
+
+        if (range1.intersection(range2) === undefined) {
+            newRanges.push(range1);
+            range1 = range2;
+            continue;
+        }
+
+        range1 = range1.union(range2);
+    }
+    newRanges.push(range1);
+
+    return newRanges;
+}
+
 let dt = new Map<string, { ranges: readonly vscode.Range[] }>();
 
 function cmdAddRange(): void {
@@ -46,7 +72,7 @@ function cmdAddRange(): void {
 
     const fileName = editor.document.fileName;
     const oldRanges = dt.get(fileName)?.ranges ?? [];
-    dt.set(fileName, { ranges: [...oldRanges, ...newRanges ] });
+    dt.set(fileName, { ranges: mergeOverlapping([ ...oldRanges, ...newRanges ]) });
 
     doSetDecorations(editor);
 }
