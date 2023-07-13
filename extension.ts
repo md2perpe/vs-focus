@@ -21,14 +21,14 @@ function selectionsComplement(selections: readonly vscode.Range[], fullRange: vs
 
 function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('extension.focus', doFocus),
+        vscode.commands.registerCommand('extension.focus', cmdFocus),
         vscode.window.onDidChangeActiveTextEditor(doSetDecorations),
     );
 }
     
-let dt = new Map<string, { ranges: vscode.Range[], decorationType: vscode.TextEditorDecorationType }>();
+let dt = new Map<string, { ranges: readonly vscode.Range[], decorationType: vscode.TextEditorDecorationType }>();
 
-function doFocus(): void {
+function cmdFocus(): void {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return;
@@ -46,21 +46,23 @@ function doFocus(): void {
         dt.get(fileName)!.decorationType.dispose();
     }
     dt.set(fileName, { ranges, decorationType });
-    
+
     doSetDecorations(editor);
 }
 
-function getRanges(editor: vscode.TextEditor): vscode.Range[] {
+function getRanges(editor: vscode.TextEditor): readonly vscode.Range[] {
     // When there is no or just an empty selection
     if (editor.selections.length <= 1 && editor.selection.isEmpty) {
         return [];
     }
 
+    return editor.selections;
+}
+
+function getFullDocumentRange(editor: vscode.TextEditor): vscode.Range {
     const startDocument = new vscode.Position(0,0);
     const endDocument   = editor.document.lineAt(editor.document.lineCount - 1).rangeIncludingLineBreak.end;
-    const fullDocument = new vscode.Range(startDocument, endDocument);
-
-    return selectionsComplement(editor.selections, fullDocument);
+    return new vscode.Range(startDocument, endDocument);
 }
 
 function doSetDecorations(editor: vscode.TextEditor|undefined) {
@@ -74,13 +76,16 @@ function doSetDecorations(editor: vscode.TextEditor|undefined) {
         return;
     }
 
-    editor.setDecorations(decorationInfo.decorationType, decorationInfo.ranges);
+    const grayoutRanges = selectionsComplement(decorationInfo.ranges, getFullDocumentRange(editor));
+
+    editor.setDecorations(decorationInfo.decorationType, grayoutRanges);
 }
 
 function createDecorationType() {
     const decorationOptions: vscode.DecorationRenderOptions = {
         opacity: vscode.workspace.getConfiguration('vsfocus').get<string>('opacity') + " !important",
     }
+
     const color = vscode.workspace.getConfiguration('vsfocus').get<vscode.ThemeColor>('color');
     if(color) {
         decorationOptions.color = color;
