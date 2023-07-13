@@ -1,17 +1,21 @@
 import * as vscode from 'vscode';
 
-function cut(min: vscode.Position, max: vscode.Position, current: any[]): [vscode.Position, vscode.Position][] {
-    let currentNew: [vscode.Position, vscode.Position][] = [];
-    current.forEach(item => {
-        if(min.isAfterOrEqual(item[0]) && max.isBeforeOrEqual(item[1])){
-            currentNew.push([item[0], min], [max, item[1]])
-            return;
-        }else{
-            currentNew.push([item[0], item[1]])
-            return;
+// Looks for a range in `oldRanges` which contains `range` 
+// and splits that in the before and after parts.
+function cut(oldRanges: vscode.Range[], range: vscode.Range): vscode.Range[] {
+    let newRanges: vscode.Range[] = [];
+    oldRanges.forEach((thisOldRange) => {
+        if (thisOldRange.contains(range)) {
+            newRanges.push(new vscode.Range(thisOldRange.start, range.start), new vscode.Range(range.end, thisOldRange.end));
+        } else {
+            newRanges.push(thisOldRange);
         }
     });
-    return currentNew;
+    return newRanges;
+}
+
+function selectionsComplement(selections: readonly vscode.Range[], fullRange: vscode.Range): vscode.Range[] {
+    return selections.reduce(cut, [fullRange]);
 }
 
 
@@ -42,28 +46,21 @@ function doFocus(): void {
         dt.get(fileName)!.decorationType.dispose();
     }
     dt.set(fileName, { ranges, decorationType });
+    
     doSetDecorations(editor);
 }
 
-function getRanges(editor: vscode.TextEditor): vscode.Range[]|undefined {
-    let startSelection = editor.selection.start;
-    let endSelection   = editor.selection.end;
-
-    let startDocument = new vscode.Position(0,0);
-    let endDocument   = editor.document.lineAt(editor.document.lineCount - 1).rangeIncludingLineBreak.end;
-
-    if (editor.selections.length <= 1 &&
-        startSelection.line == endSelection.line &&
-        startSelection.character == endSelection.character
-    ) {
-        return undefined;
+function getRanges(editor: vscode.TextEditor): vscode.Range[] {
+    // When there is no or just an empty selection
+    if (editor.selections.length <= 1 && editor.selection.isEmpty) {
+        return [];
     }
 
-    return editor.selections.reduce((megaRange, selection) => {
-        return cut(selection.start, selection.end, megaRange)
-    }, [[startDocument, endDocument]]).map((item) => {
-        return new vscode.Range(item[0], item[1]);
-    });
+    const startDocument = new vscode.Position(0,0);
+    const endDocument   = editor.document.lineAt(editor.document.lineCount - 1).rangeIncludingLineBreak.end;
+    const fullDocument = new vscode.Range(startDocument, endDocument);
+
+    return selectionsComplement(editor.selections, fullDocument);
 }
 
 function doSetDecorations(editor: vscode.TextEditor|undefined) {
@@ -72,11 +69,12 @@ function doSetDecorations(editor: vscode.TextEditor|undefined) {
     }
 
     const fileName = editor.document.fileName;
-    if (!dt.has(fileName)) {
+    const decorationInfo = dt.get(fileName);
+    if (!decorationInfo) {
         return;
     }
 
-    editor.setDecorations(dt.get(fileName)!.decorationType, dt.get(fileName)!.ranges);
+    editor.setDecorations(decorationInfo.decorationType, decorationInfo.ranges);
 }
 
 function createDecorationType() {
